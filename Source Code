@@ -1,0 +1,144 @@
+#include <Arduino.h>
+#include <LiquidCrystal.h>
+#include <Servo.h>
+
+// -------------- variables and set up -----------------
+int randnumber; // declares variable needed for random seed generation
+int scalednumber; // variable for math conversion to delay between 2 and 10 seconds
+int ledpin = 2; // pin number on board for led control
+int buttonpin = 4; // pin for button
+int buzzerpin = 13; // pin for buzzer
+int servopin = 3; // pin for motor
+
+Servo myservo; // calls servo library
+int pos = 0; //set servo position.
+
+unsigned long t0; // declares variable for intial time t0.
+unsigned long rt; // declares initial variable for initial retention time (rt)
+int rts; // declare retention time variables along with intial rt and t0.
+
+const int number_of_trials = 10; // sets number of trials to be ran by program.
+int trialcount = 0; // count of current number of trials.
+bool doneShown = false; 
+
+//                RS  E  D4 D5  D6 D7 // pins associated with display.
+LiquidCrystal lcd(7, 8, 9, 10, 11, 12); // calls LCD library with control pins.
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600); // open serial monitor
+  lcd.begin(16, 2); // initiates lcd display size.
+  lcd.clear(); // clears whatever is initially on lcd, if any.
+  lcd.setCursor(0, 0); // moves cursor for printing characters to first row and column of display
+  lcd.print("RT (ms):"); // print to lcd 
+  
+  pinMode(ledpin, OUTPUT); // sets pin number for led and specifies function. 
+  pinMode(buttonpin, INPUT_PULLUP); // sets pin number for button and specifies how comparison for input is obtained.
+
+  myservo.attach(3); //attach pin 3 to servo motor
+
+}
+
+
+// ---------------- LED Pulse function-----------------
+static inline void ledpulse(int pin) { // calls for a non result giving function, 'ledpulse' with integer argument.
+  digitalWrite(pin, HIGH); // turn led on
+  //delay(scalednumber); //
+
+  unsigned long t0 = micros(); // sets t0 to microseconds since program started running.
+  while (digitalRead(buttonpin) == HIGH) {} // while button is not pressed, do nothing and idle.
+  unsigned long rt = micros() - t0; // once button is pressed, calculate retention time by subtracting current program time from initial recorded time.
+  // this is essentially finding the time between stimulus start and button response.
+  int rts = rt/1000; // converts microseconds calculated into milliseconds.
+
+  digitalWrite(pin, LOW); // once calculation is done with button press, turn led off.
+  Serial.println(rts); // print calculated result to serial.
+  //Serial.println( " milliseconds was the reaction time to the LED");
+
+  lcd.clear(); // clear lcd
+  lcd.setCursor(0, 0); 
+  lcd.print("RT (ms):"); // print calculated reaction time.
+  lcd.setCursor(0, 1);
+  lcd.print(rts);
+}
+
+// ----------------- Buzzer Pulse function -----------------
+static inline void buzzerpulse(int pin) { // function to operate buzzer
+  tone(buzzerpin, 440, 200); // buzzes at 440 hz or an A
+  unsigned long t0 = micros(); // set t0 to time in µs since program started
+  while (digitalRead(buttonpin) == HIGH) {} // while button is pressed down, set rt to the difference between current time and the previous time taken in t0.
+  unsigned long rt = micros() - t0;
+  int rts = rt/1000;
+
+  digitalWrite(pin, LOW); // turn led off once button is pressed.
+  Serial.print(rts);
+  Serial.println( " milliseconds was the reaction time to the buzzer.");
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("RT (ms):");
+  lcd.setCursor(0, 1);
+  lcd.print(rts);
+}
+
+
+
+// ----------------- Motor Pulse function -----------------
+static inline void motorpulse(int pin) {
+  // turn servo motor on to turn until button is pressed.
+  for (pos = 0; pos <= 10; pos += 1) {
+    // turn servo in steps of 1 degree
+    myservo.write(pos);
+    delay(10);
+    
+    
+  }
+
+  unsigned long t0 = micros(); // set t0 to time in µs since program started
+  while (digitalRead(buttonpin) == HIGH) {} // while button is pressed down, set rt to the difference between current time and the previous time taken in t0.
+  unsigned long rt = micros() - t0;
+  float rts = rt/1000;
+  Serial.print(rts);
+  Serial.println( " milliseconds was the reaction time to the servo.");
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("RT (ms):");
+  lcd.setCursor(0, 1);
+  lcd.print(rts);
+
+
+} 
+
+void loop() { // this is where the program actually runs.
+  // put your main code here, to run repeatedly:
+  if (trialcount >= number_of_trials) {
+    if (!doneShown) { // if doneShown is evaluated as true
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Trials Complete.");
+      lcd.setCursor(0,1);
+      lcd.print("Total: 10");
+
+      Serial.print("Trials Complete");
+      doneShown = true;
+    }
+    return; // idle once program is done running.
+  }
+
+  int randnumber = random(analogRead(0));
+  int scalednumber = 2 + (randnumber * (10 - 2)) / 250; // generate seed for random delay in seconds between 2 and 10.
+
+  //Serial.print(scalednumber);
+  //Serial.println(" was the last generated seed number");
+  delay(scalednumber * 1000); //delay for random seed time before flashing led.
+
+  // ------------- Select Stimulus method -------------
+  buzzerpulse(buzzerpin);
+  //ledpulse(ledpin);
+  //motorpulse(servopin);
+
+  trialcount++; // increase trialcount variable by 1 every time this loops.
+}
+
+
